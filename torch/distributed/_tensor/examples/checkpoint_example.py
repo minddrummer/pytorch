@@ -128,7 +128,7 @@ def run_checkpoint_example(rank, world_size):
     print(f"partial replicate model state_dict: {model_2d.state_dict()}")
 
     # create a sub-mesh and shard/replicate params only on submesh
-    # TODO: fully implment this submesh example
+    # TODO: fully implement this submesh example
     submesh = DeviceMesh("cpu", [0, 2])
     model_submesh = gen_model_param_in_submesh(SimpleMLP(), submesh)
 

@@ -32,7 +32,7 @@ class ReplicatedTensor(torch.Tensor):
         ReplicatedTensor + ShardedTensor = ShardedTensor
         ReplicatedTensor + other type (i.e. Scalar) = other type
 
-    NOTE: We do not gurantee equal content of ReplicatedTensor across nodes after its
+    NOTE: We do not guarantee equal content of ReplicatedTensor across nodes after its
     construction. Although we defined proper inter-op rules to make sure ReplicatedTensor
     stays the same, there's no enforcement on it (i.e. if you manually modify content on
     some ranks, the modified value will not automatically get synced to other nodes). If
