@@ -2274,6 +2274,8 @@ def run(runner, args, original_dir=None):
         model_names = list(runner.iter_model_names(args))
         nmodels = len(model_names)
         for i, name in enumerate(model_names):
+            if name != "vision_maskrcnn":
+                continue
             current_name = name
             placeholder_batch_size = 0
             if args.progress:
