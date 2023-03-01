@@ -127,7 +127,7 @@ def enable_dynamic(enable: bool = True):
     if not enable:
         yield
         return
-    with config.patch(dynamic_shapes=True, specialize_int_float=False):
+    with config.patch(dynamic_shapes=True):
         yield
 
 
@@ -604,7 +604,9 @@ def export(
     flat_args, in_spec = pytree.tree_flatten((args, kwargs))
 
     remove_from_cache(f)
-    with patch(f"{__name__}.most_recent_backend", None):
+    with patch(f"{__name__}.most_recent_backend", None), config.patch(
+        specialize_int=True
+    ):
         opt_f = optimize_assert(
             dynamo_normalization_capturing_compiler,
             hooks=Hooks(guard_export_fn=guard_export_print, guard_fail_fn=None),
