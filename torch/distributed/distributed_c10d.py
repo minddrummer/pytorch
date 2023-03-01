@@ -7,6 +7,7 @@ import logging
 import os
 import pickle
 import time
+import re
 import warnings
 from collections import namedtuple
 from datetime import timedelta
@@ -226,7 +227,6 @@ class BackendConfig:
 
     def __init__(self, backend: Union[str, Backend]):
         self.device_backend_map: Dict[torch.device, Backend] = {}
-        # error check to make sure the config string is valid
 
         # Cases for when backend is a single string (without device types)
         if backend == Backend.UNDEFINED:
@@ -243,13 +243,24 @@ class BackendConfig:
                 "cuda": backend_val,
             }
         else:
-            # custom backend string in format of "{device_type1}:{backend1},{device_type2}:{backend2}"
-            # TODO
-            pass
+            # make sure the backend string is in the correct format
+            # "{device_type1}:{backend1},{device_type2}:{backend2}"
+            # device type and backend must be alphanumeric characters
+            # e.g. "cpu:gloo,cuda:nccl"
+            pattern = r'^[a-zA-Z0-9]+:[a-zA-Z0-9]+(,[a-zA-Z0-9]+:[a-zA-Z0-9]+)*$'
+            # check if the test string matches the pattern
+            if not re.match(pattern, backend):
+                raise ValueError(f"""Invalid backend string argument: {backend}.
+                Custom backend string is an experimental feature where the backend string must be in the format:
+                "<device_type1>:<backend1>,<device_type2>:<backend2>...". where device_type and backend are
+                alphanumeric characters. e.g. 'cpu:gloo,cuda:nccl'""")
 
-        required_devices = ["cpu", "cuda"]
-        for device in required_devices:
-            assert device in self.device_backend_map
+            # parse the backend string and populate the device_backend_map
+            for device_backend_pair in backend.lower().split(","):
+                device, backend = device_backend_pair.split(":")
+                if device in self.device_backend_map:
+                    raise ValueError(f"Duplicate device type {device} in backend string: {backend}")
+                self.device_backend_map[device] = Backend(backend)
 
     def __repr__(self):
         # string with all the device:backend pairs separared by commas
@@ -847,7 +858,9 @@ def init_process_group(
     .. note:: Support for multiple backends is experimental. Currently when no backend is
         specified, both ``gloo`` and ``nccl`` backends will be created. The ``gloo`` backend
         will be used for collectives with CPU tensors and the ``nccl`` backend will be used
-        for collectives with CUDA tensors.
+        for collectives with CUDA tensors. A custom backend can be specified by passing in
+        a string with format "<device_type>:<backend_name>,<device_type>:<backend_name>", e.g.
+        "cpu:gloo,cuda:custom_backend".
 
     """
     global _world
@@ -1088,15 +1101,15 @@ def _new_process_group_helper(
                         timeout=timeout,
                     )
 
-        # only create single backend pg when backend is set to gloo, nccl, mpi, and ucc
-        if backend in [Backend.GLOO, Backend.NCCL, Backend.UCC, Backend.MPI]:
+        # register only a single backend when all get_device_backend_map values are the same
+        if len(set(backend_config.get_device_backend_map().values())) == 1:
             for device in backend_config.get_device_backend_map().keys():
                 pg._register_backend(torch.device(device), backend_type, backend_class)
 
             # break out of outer loop to not create any more backends
             break
-        else:
-            pg._register_backend(torch.device(device), backend_type, backend_class)
+
+        pg._register_backend(torch.device(device), backend_type, backend_class)
 
     # update global state
     _world.pg_map[pg] = (backend, prefix_store)
