@@ -71,10 +71,6 @@ DynamicShapesSubGraphTestsDefaultStatic = test_classes[
 ]
 
 unittest.expectedFailure(
-    DynamicShapesMiscTestsDefaultStatic.test_autocast_sdpa_dynamic_shapes_static_default
-)
-
-unittest.expectedFailure(
     DynamicShapesMiscTestsDefaultStatic.test_parsing_sdpa_dynamic_shapes_static_default
 )
 
@@ -111,11 +107,6 @@ unittest.expectedFailure(
 
 unittest.expectedFailure(
     DynamicShapesReproTests.test_sort_out2_dynamic_shapes
-    # Cannot call sizes() on tensor with symbolic sizes/strides
-)
-
-unittest.expectedFailure(
-    DynamicShapesMiscTests.test_autocast_sdpa_dynamic_shapes
     # Cannot call sizes() on tensor with symbolic sizes/strides
 )
 
