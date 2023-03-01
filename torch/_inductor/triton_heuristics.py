@@ -14,10 +14,16 @@ from typing import List
 import torch
 from torch._dynamo.utils import dynamo_timed
 
-from .. import config
-from ..codecache import cache_dir
-from ..ir import ReductionHint, TileHint
-from ..utils import ceildiv, conditional_product, do_bench, has_triton, next_power_of_2
+from torch._inductor import config
+from torch._inductor.codecache import cache_dir
+from torch._inductor.ir import ReductionHint, TileHint
+from torch._inductor.utils import (
+    ceildiv,
+    conditional_product,
+    do_bench,
+    has_triton,
+    next_power_of_2,
+)
 
 
 log = logging.getLogger(__name__)
@@ -146,7 +152,7 @@ class CachingAutotuner(KernelInterface):
     @dynamo_timed
     def autotune_to_one_config(self, *args, **kwargs):
         """Do the actual autotuning"""
-        from ..compile_fx import clone_preserve_strides
+        from .compile_fx import clone_preserve_strides
 
         # clone inplace buffers to avoid autotune contaminating them if
         # the kernel does in-place stores. avoid cloning other buffers because
