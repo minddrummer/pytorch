@@ -21,6 +21,8 @@ HASFREE = set(dis.hasfree)
 
 stack_effect = dis.stack_effect
 
+def is_uncond(instruction):
+    return instruction.opname in ("JUMP_FORWARD", "JUMP_BACKWARD", "JUMP_BACKWARD_NO_INTERRUPT", "JUMP_ABSOLUTE")
 
 def remove_dead_code(instructions):
     """Dead code elimination"""
@@ -131,46 +133,55 @@ class FixedPointBox:
 class StackSize:
     low: Real
     high: Real
-    fixed_point: FixedPointBox
 
     def zero(self):
         self.low = 0
         self.high = 0
-        self.fixed_point.value = False
 
-    def offset_of(self, other, n):
+    def offset_of(self, other, n, fixed_point):
         prior = (self.low, self.high)
         self.low = min(self.low, other.low + n)
         self.high = max(self.high, other.high + n)
         if (self.low, self.high) != prior:
-            self.fixed_point.value = False
+            fixed_point.value = False
+        else:
+            fixed_point.value = True
 
 
 def stacksize_analysis(instructions):
     assert instructions
     fixed_point = FixedPointBox()
     stack_sizes = {
-        inst: StackSize(float("inf"), float("-inf"), fixed_point)
+        inst: StackSize(float("inf"), float("-inf"))
         for inst in instructions
     }
     stack_sizes[instructions[0]].zero()
 
-    for _ in range(100):
-        if fixed_point.value:
-            break
-        fixed_point.value = True
+    indexof = {id(inst): i for i, inst in enumerate(instructions)}
 
-        for inst, next_inst in zip(instructions, instructions[1:] + [None]):
-            stack_size = stack_sizes[inst]
-            if inst.opcode not in TERMINAL_OPCODES:
-                assert next_inst is not None, f"missing next inst: {inst}"
-                stack_sizes[next_inst].offset_of(
-                    stack_size, stack_effect(inst.opcode, inst.arg, jump=False)
+    worklist = list()
+    worklist.append(0)
+
+    while(worklist.count() != 0):
+        index = worklist.pop(0)
+        inst = instructions[index]
+        stack_size = stack_sizes[inst]
+
+        if inst.opcode in JUMP_OPCODES:
+            stack_sizes[inst.target].offset_of(
+                    stack_size, stack_effect(inst.opcode, inst.arg, jump=True), fixed_point
                 )
-            if inst.opcode in JUMP_OPCODES:
-                stack_sizes[inst.target].offset_of(
-                    stack_size, stack_effect(inst.opcode, inst.arg, jump=True)
+            if not fixed_point.value:
+                worklist.append(indexof[id(inst.target)])
+            if is_uncond(inst):
+                continue
+        if inst.opcode not in TERMINAL_OPCODES:
+            assert index + 1 < len(instructions), f"missing next inst: {inst}"
+            stack_sizes[index + 1].offset_of(
+                    stack_size, stack_effect(inst.opcode, inst.arg, jump=False), fixed_point
                 )
+            if not fixed_point.value:
+                worklist.append(index + 1)
 
     if False:
         for inst in instructions:
